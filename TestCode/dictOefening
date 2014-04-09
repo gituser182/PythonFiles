@@ -1,0 +1,276 @@
+"""
+Oefening : OTP twee maal gebruikt. Vind de PlainText
+    A, B = Plain Text
+    CT1  = (A xor Key1)
+    CT2  = (B xor Key1)
+    CT1 xor CT2 = (A xor Key1) xor (B xor Key1)   en (Key1 xor Key1 = nul)
+                = A xor B 
+
+    
+Opgave: Eenvoudig schema met 8 letters, gebruikte taal is Engels
+    binair met 8 letters
+    0) 000 = e
+    1) 001 = h
+    2) 010 = i
+    3) 011 = k
+    4) 100 = l
+    5) 101 = r
+    6) 110 = s
+    7) 111 = t
+
+    Key1 = slekhirtes (6403125706)                    0|1|2|3|4|5|6|7|8|9
+    PlainText A = killhilter  => CT1 = (A xor Key1) = r|s|l|t|e|e|i|k|e|k
+    PlainText B = helikesike  -> CT2 = (B xor Key1) = t|l|l|h|i|i|k|r|k|s
+    CT1 xor CT2 = Plaintext A xor PlainText B       = i|i|e|s|i|i|h|s|k|r
+    Opmerking : op plaats 2 staat in CT1 en CT2 dezelfde letter (l)
+                dit kan als Key1 op plaats 2 een '0' (e) is, wat het geval is.
+
+Aanpak:
+
+Crib dragging op de geXORde CT is mogelijk
+##
+1 Guess a word that might appear in one of the messages
+2 Encode the word from step 1 to a hex string
+3 XOR the two cipher-text messages
+4 XOR the hex string from step 2 at each position of the XOR of the two cipher-texts (from step 3)
+5 When the result from step 4 is readable text, we guess the English word and expand our crib search.
+6 If the result is not readable text, we try an XOR of the crib word at the next position.
+##
+
+Andere mogelijkheid
+Als een XOR-resultaat 0 is, kan men de mogelijke combinaties die dit
+resultaat vormen opzoeken in de dictionary
+(en al mogelijke combinaties uitsluiten).
+
+1) Eerste XOR-resultaat = i of 2
+Dan kan dit enkel het gevolg zijn als (dict[2]):
+
+PT1           PT2           PT1  PT2  
+letters[0] en letters[2]    e    i
+letters[1] en letters[3]    h    k 
+letters[2] en letters[0]    i    e
+letters[3] en letters[1]    k    h
+..                          De combinaties ek, eh, ik, ih zijn niet mogelijk
+
+
+Voor de eerste letter van CT1 xor XT2 (i = 010 = 2) kijken we in dict[2]
+Dit levert 8 mogelijke (gekoppelde) lettercombinaties op voor
+de eerste letter van PT1 en PT2
+
+dict[2] = [ [letters[0],letters[2]],    
+[letters[1],letters[3]],                
+[letters[2],letters[0]],                
+[letters[3],letters[1]],                
+[letters[4],letters[6]],                
+[letters[5],letters[7]],                
+[letters[6],letters[4]],                
+[letters[7],letters[5]]]
+
+Hiermee kunnen we 8 lists opzetten voor PT1 en PT2
+
+PT1 = 0 e
+PT2 = 2 i
+
+PT1 = 1 h
+PT2 = 3 k
+
+PT1 = 2 i
+PT2 = 0 e
+
+PT1 = 3 k
+PT2 = 1 h
+
+PT1 = 4 l
+PT2 = 6 s
+
+PT1 = 5 r
+PT2 = 7 t
+
+PT1 = 6 s
+PT2 = 4 l
+
+PT1 = 7 t
+PT2 = 5 r
+
+2) Voor de tweede letter van CT1 xor XT2 (i = 010 = 2) kijken we in dict[2]
+Dit levert opnieuw 8 mogelijke (gekoppelde) lettercombinaties op
+Voor ELK paar hierboven beschreven, moeten we de 8 combinaties uitschrijven
+
+voor PT1 = e en PT2 = i:
+PT1 = 0 e  + PT1 = 0 e  levert 'ee'
+PT2 = 2 i  + PT2 = 2 i  levert 'ii'  
+
+PT1 = 0 e  + PT1 = 1 h  levert 'eh'
+PT2 = 2 i  + PT2 = 3 k  levert 'ik'  
+
+PT1 = 0 e  + PT1 = 2 i  levert 'ei'
+PT2 = 2 i  + PT2 = 0 e  levert 'ie'
+
+PT1 = 0 e  + PT1 = 3 k  levert 'ek'
+PT2 = 2 i  + PT2 = 1 h  levert 'ih'
+
+PT1 = 0 e  + PT1 = 4 l  levert 'el'
+PT2 = 2 i  + PT2 = 6 s  levert 'is'
+
+PT1 = 0 e  + PT1 = 5 r  levert 'er'
+PT2 = 2 i  + PT2 = 7 t  levert 'it'
+
+PT1 = 0 e  + PT1 = 6 s  levert 'es'
+PT2 = 2 i  + PT2 = 4 l  levert 'il'
+
+PT1 = 0 e  + PT1 = 7 t  levert 'et'
+PT2 = 2 i  + PT2 = 5 r  levert 'ir'
+
+
+Dit moet herhaald worden voor elke andere eerste letter en
+levert alzo 8*8 = 64 combinaties op.
+
+3) De derde letter hebben we kunnen bepalen als zijnde een 'l'
+
+4) herhaal procedure twee voor de vierde letter
+
+5) Daarna gaan we een woordenboek-aanval opzetten en in de gevonden combinaties
+zoeken naar herkenbare woorden (lengte 1 tot 4 karakters).
+    
+"""
+################################################################################
+letters = ['e', 'h', 'i', 'k', 'l', 'r', 's', 't']
+# x = CT1 xor CT2
+x = "2206221635"     #weergave in waarde ipv letters "iiesiihskr"  
+
+#startStrings
+s11 = ""
+s12 = ""
+s13 = ""
+s14 = ""
+s15 = ""
+s16 = ""
+s17 = ""
+s18 = ""
+
+s21 = ""
+s22 = ""
+s23 = ""
+s24 = ""
+s25 = ""
+s26 = ""
+s27 = ""
+s28 = ""
+
+
+dict = {}
+###### Gegenereerde dictionary: zie 'binary oefening.py'
+dict[0] = [ [letters[0],letters[0]],    # 0b0 = 0b0 XOR 0b0
+[letters[1],letters[1]],                # 0b0 = 0b1 XOR 0b1
+[letters[2],letters[2]],                # 0b0 = 0b10 XOR 0b10
+[letters[3],letters[3]],                # 0b0 = 0b11 XOR 0b11
+[letters[4],letters[4]],                # 0b0 = 0b100 XOR 0b100
+[letters[5],letters[5]],                # 0b0 = 0b101 XOR 0b101
+[letters[6],letters[6]],                # 0b0 = 0b110 XOR 0b110
+[letters[7],letters[7]]                 # 0b0 = 0b111 XOR 0b111
+ ]
+dict[1] = [ [letters[0],letters[1]],    # 0b1 = 0b0 XOR 0b1
+[letters[1],letters[0]],                # 0b1 = 0b1 XOR 0b0
+[letters[2],letters[3]],                # 0b1 = 0b10 XOR 0b11
+[letters[3],letters[2]],                # 0b1 = 0b11 XOR 0b10
+[letters[4],letters[5]],                # 0b1 = 0b100 XOR 0b101
+[letters[5],letters[4]],                # 0b1 = 0b101 XOR 0b100
+[letters[6],letters[7]],                # 0b1 = 0b110 XOR 0b111
+[letters[7],letters[6]]                 # 0b1 = 0b111 XOR 0b110
+ ]
+dict[2] = [ [letters[0],letters[2]],    # 0b10 = 0b0 XOR 0b10
+[letters[1],letters[3]],                # 0b10 = 0b1 XOR 0b11
+[letters[2],letters[0]],                # 0b10 = 0b10 XOR 0b0
+[letters[3],letters[1]],                # 0b10 = 0b11 XOR 0b1
+[letters[4],letters[6]],                # 0b10 = 0b100 XOR 0b110
+[letters[5],letters[7]],                # 0b10 = 0b101 XOR 0b111
+[letters[6],letters[4]],                # 0b10 = 0b110 XOR 0b100
+[letters[7],letters[5]]                 # 0b10 = 0b111 XOR 0b101
+ ]
+dict[3] = [ [letters[0],letters[3]],    # 0b11 = 0b0 XOR 0b11
+[letters[1],letters[2]],                # 0b11 = 0b1 XOR 0b10
+[letters[2],letters[1]],                # 0b11 = 0b10 XOR 0b1
+[letters[3],letters[0]],                # 0b11 = 0b11 XOR 0b0
+[letters[4],letters[7]],                # 0b11 = 0b100 XOR 0b111
+[letters[5],letters[6]],                # 0b11 = 0b101 XOR 0b110
+[letters[6],letters[5]],                # 0b11 = 0b110 XOR 0b101
+[letters[7],letters[4]]                 # 0b11 = 0b111 XOR 0b100
+ ]
+dict[4] = [ [letters[0],letters[4]],    # 0b100 = 0b0 XOR 0b100
+[letters[1],letters[5]],                # 0b100 = 0b1 XOR 0b101
+[letters[2],letters[6]],                # 0b100 = 0b10 XOR 0b110
+[letters[3],letters[7]],                # 0b100 = 0b11 XOR 0b111
+[letters[4],letters[0]],                # 0b100 = 0b100 XOR 0b0
+[letters[5],letters[1]],                # 0b100 = 0b101 XOR 0b1
+[letters[6],letters[2]],                # 0b100 = 0b110 XOR 0b10
+[letters[7],letters[3]]                 # 0b100 = 0b111 XOR 0b11
+ ]
+dict[5] = [ [letters[0],letters[5]],    # 0b101 = 0b0 XOR 0b101
+[letters[1],letters[4]],                # 0b101 = 0b1 XOR 0b100
+[letters[2],letters[7]],                # 0b101 = 0b10 XOR 0b111
+[letters[3],letters[6]],                # 0b101 = 0b11 XOR 0b110
+[letters[4],letters[1]],                # 0b101 = 0b100 XOR 0b1
+[letters[5],letters[0]],                # 0b101 = 0b101 XOR 0b0
+[letters[6],letters[3]],                # 0b101 = 0b110 XOR 0b11
+[letters[7],letters[2]]                 # 0b101 = 0b111 XOR 0b10
+ ]
+dict[6] = [ [letters[0],letters[6]],    # 0b110 = 0b0 XOR 0b110
+[letters[1],letters[7]],                # 0b110 = 0b1 XOR 0b111
+[letters[2],letters[4]],                # 0b110 = 0b10 XOR 0b100
+[letters[3],letters[5]],                # 0b110 = 0b11 XOR 0b101
+[letters[4],letters[2]],                # 0b110 = 0b100 XOR 0b10
+[letters[5],letters[3]],                # 0b110 = 0b101 XOR 0b11
+[letters[6],letters[0]],                # 0b110 = 0b110 XOR 0b0
+[letters[7],letters[1]]                 # 0b110 = 0b111 XOR 0b1
+ ]
+dict[7] = [ [letters[0],letters[7]],    # 0b111 = 0b0 XOR 0b111
+[letters[1],letters[6]],                # 0b111 = 0b1 XOR 0b110
+[letters[2],letters[5]],                # 0b111 = 0b10 XOR 0b101
+[letters[3],letters[4]],                # 0b111 = 0b11 XOR 0b100
+[letters[4],letters[3]],                # 0b111 = 0b100 XOR 0b11
+[letters[5],letters[2]],                # 0b111 = 0b101 XOR 0b10
+[letters[6],letters[1]],                # 0b111 = 0b110 XOR 0b1
+[letters[7],letters[0]]                 # 0b111 = 0b111 XOR 0b0
+ ]
+
+######
+
+
+
+#for k in dict:
+#print dict[0][0]                   #['e', 'e'] eerste element voor key = 0
+#print dict[0][0][0],dict[0][0][1]  #key=0, 0e list-element,  0e listinhoud geeft 'e'
+#print dict[0][1][0],dict[0][1][1]  # geeft 'h h'
+
+test = []
+test.append(dict[0][0][0])
+test.append(dict[0][1][0])  #'eh'
+t = ''.join(test)
+#print 'test inhoud (eh) = ', t # 'eh'
+
+######### LETTER 1
+print "CT1 xor CT2 = ", x
+getal = int(x[0])
+print "CT1 xor XT2 = ", getal, letters[getal]
+print dict[getal]
+
+getal = int(x[1])
+print "CT1 xor XT2 = ", getal, letters[getal]
+print dict[getal]
+
+getal = int(x[2])
+print "CT1 xor XT2 = ", getal, letters[getal]
+print dict[getal]
+
+getal = int(x[3])
+print "CT1 xor XT2 = ", getal, letters[getal]
+print dict[getal]
+    
+
+    
+
+
+
+
+    
+
